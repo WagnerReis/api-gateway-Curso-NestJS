@@ -10,30 +10,19 @@ import {
   Put,
   Param,
 } from '@nestjs/common';
-import {
-  ClientProxy,
-  ClientProxyFactory,
-  Transport,
-} from '@nestjs/microservices';
 import { Observable } from 'rxjs';
+import { ClientProxySmartRanking } from 'src/proxyrmq/client-proxy';
 import { AtualizarCategoriaDto } from './dtos/atualizar-categoria.dto';
 import { CriarCategoriaDto } from './dtos/criar-categoria.dto';
 
 @Controller('api/v1')
-export class AppController {
-  private logger = new Logger(AppController.name);
+export class CategoriasController {
+  private logger = new Logger(CategoriasController.name);
 
-  private clientAdminBackend: ClientProxy;
+  constructor(private clientProxySmartRanking: ClientProxySmartRanking) {}
 
-  constructor() {
-    this.clientAdminBackend = ClientProxyFactory.create({
-      transport: Transport.RMQ,
-      options: {
-        urls: ['amqp://user:bitnami@localhost:5672/smartranking'],
-        queue: 'admin-backned',
-      },
-    });
-  }
+  private clientAdminBackend =
+    this.clientProxySmartRanking.getClientProxyAdminBackendInstance();
 
   @Post('categorias')
   @UsePipes(ValidationPipe)
