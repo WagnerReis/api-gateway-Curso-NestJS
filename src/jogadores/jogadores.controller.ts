@@ -11,18 +11,25 @@ import {
   Param,
   BadRequestException,
   Delete,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { CriarJogadorDto } from './dtos/criar-jogador.dto';
 import { AtualizarJogadorDto } from './dtos/atualizar-jogador.dto';
 import { Observable } from 'rxjs';
 import { ClientProxySmartRanking } from '../proxyrmq/client-proxy';
 import { ValidacaoParametrosPipe } from '../common/pipes/validacao-parametros.pipe';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { AwsService } from 'src/aws/aws.service';
 
 @Controller('api/v1/jogadores')
 export class JogadoresController {
   private logger = new Logger(JogadoresController.name);
 
-  constructor(private clientProxySmartRanking: ClientProxySmartRanking) {}
+  constructor(
+    private clientProxySmartRanking: ClientProxySmartRanking,
+    private awsService: AwsService,
+  ) {}
 
   private clientAdminBackend =
     this.clientProxySmartRanking.getClientProxyAdminBackendInstance();
@@ -41,6 +48,33 @@ export class JogadoresController {
     } else {
       throw new BadRequestException(`Categoria não cadastrada!`);
     }
+  }
+
+  @Post('/:_id/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadArquivo(@UploadedFile() file, @Param('_id') _id: string) {
+    //Verificar se o jogador está cadastrado
+    const jogador = await this.clientAdminBackend
+      .send('consultar-jogadores', _id)
+      .toPromise();
+
+    if (!jogador) {
+      throw new BadRequestException('Jogador não encontrado!');
+    }
+    //Enviar o arquivo para o S3 e recuperar a URL de acesso
+    const urlFotoJogador = await this.awsService.uploadArquivo(file, _id);
+
+    //Atualizar o atributo URL da entidade jogador
+    const atualizarJogadorDto: AtualizarJogadorDto = {};
+    atualizarJogadorDto.urlFotoJogador = urlFotoJogador.url;
+
+    await this.clientAdminBackend.emit('atualizar-jogador', {
+      id: _id,
+      jogador: atualizarJogadorDto,
+    });
+    //Retornar o jogador atualizado para o cliente
+
+    return this.clientAdminBackend.send('consultar-jogadores', _id);
   }
 
   @Get()
