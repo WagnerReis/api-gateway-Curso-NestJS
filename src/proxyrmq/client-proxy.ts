@@ -4,14 +4,23 @@ import {
   ClientProxyFactory,
   Transport,
 } from '@nestjs/microservices';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class ClientProxySmartRanking {
+  constructor(private configService: ConfigService) {}
+
   getClientProxyAdminBackendInstance(): ClientProxy {
     return ClientProxyFactory.create({
       transport: Transport.RMQ,
       options: {
-        urls: ['amqp://user:bitnami@localhost:5672/smartranking'],
+        urls: [
+          `amqp://${this.configService.get<string>(
+            'RABBITMQ_USER',
+          )}:${this.configService.get<string>(
+            'RABBITMQ_PASSWORD',
+          )}@${this.configService.get<string>('RABBITMQ_URL')}`,
+        ],
         queue: 'admin-backned',
       },
     });

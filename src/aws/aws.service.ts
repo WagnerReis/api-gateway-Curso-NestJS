@@ -1,15 +1,27 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as AWS from 'aws-sdk';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AwsService {
   private logger = new Logger(AwsService.name);
 
+  constructor(private configService: ConfigService) {}
+
   public async uploadArquivo(file: any, id: string) {
+    const AWS_S3_BUCKET_NAME =
+      this.configService.get<string>('AWS_S3_BUCKET_NAME');
+    const AWS_REGION = this.configService.get<string>('AWS_REGION');
+    const AWS_ACCESS_KEY_ID =
+      this.configService.get<string>('AWS_ACCESS_KEY_ID');
+    const AWS_SECRET_ACCESS_KEY = this.configService.get<string>(
+      'AWS_SECRET_ACCESS_KEY',
+    );
+
     const s3 = new AWS.S3({
-      region: 'sa-east-1',
-      accessKeyId: 'KEY', //ACCESS_KEY_ID
-      secretAccessKey: 'KEY', //SECRETE_ACCESS_KEY
+      region: AWS_REGION,
+      accessKeyId: AWS_ACCESS_KEY_ID, //ACCESS_KEY_ID
+      secretAccessKey: AWS_SECRET_ACCESS_KEY, //SECRETE_ACCESS_KEY
     });
 
     const fileExtension = file.originalname.split('.')[1];
@@ -18,7 +30,7 @@ export class AwsService {
 
     const params = {
       Body: file.buffer,
-      Bucket: 'smartranking',
+      Bucket: AWS_S3_BUCKET_NAME,
       Key: urlKey,
     };
 
@@ -28,7 +40,7 @@ export class AwsService {
       .then(
         (data) => {
           return {
-            url: `https://smartranking.s3-sa-east-1.amazonaws.com/${urlKey}`,
+            url: `https://${AWS_S3_BUCKET_NAME}.s3-${AWS_REGION}.amazonaws.com/${urlKey}`,
           };
         },
         (err) => {
